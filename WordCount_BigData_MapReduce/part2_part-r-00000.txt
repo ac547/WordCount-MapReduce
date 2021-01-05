@@ -1,0 +1,14 @@
+1.education;2.agriculture;3.politics;4.sports;	Mississippi;Iowa;
+1.education;2.agriculture;3.sports;4.politics;	Pennsylvania;
+1.education;2.politics;3.agriculture;4.sports;	Tennessee;
+1.education;2.politics;3.sports;4.agriculture;	Alabama;West_Virginia;Virginia;Vermont;Texas;South_Carolina;Oregon;Ohio;North_Carolina;New_York;Wyoming;Michigan;Kentucky;Hawaii;Delaware;California;Arkansas;
+1.education;2.sports;3.agriculture;4.politics;	Oklahoma;
+1.education;2.sports;3.politics;4.agriculture;	Louisiana;Kansas;Arizona;Florida;Washington;Missouri;Maryland;New_Mexico;
+1.politics;2.agriculture;3.education;4.sports;	North_Dakota;
+1.politics;2.education;3.agriculture;4.sports;	Alaska;
+1.politics;2.education;3.sports;4.agriculture;	Idaho;Nevada;Maine;New_Hampshire;Massachusetts;
+1.politics;2.sports;3.agriculture;4.education;	Wisconsin;
+1.politics;2.sports;3.education;	Rhode_Island;
+1.politics;2.sports;3.education;4.agriculture;	Utah;Georgia;
+1.sports;2.education;3.politics;4.agriculture;	South_Dakota;Illinois;Indiana;Connecticut;Montana;New_Jersey;
+1.sports;2.politics;3.education;4.agriculture;	Colorado;Minnesota;Nebraska;

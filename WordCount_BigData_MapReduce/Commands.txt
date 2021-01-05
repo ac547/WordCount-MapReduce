@@ -1,0 +1,381 @@
+﻿This is a detailed procedure of how to set up Fully Distributed Hadoop
+on an Amazon EC2 cluster. 
+
+In order to replicate this you will need at least 30 minutes, AWS account,
+an ssh client which comes standard on Mac and Linux platforms,
+and can be installed on windows OS by following:
+
+	https://docs.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse 
+
+**Note: This procedure does NOT utilize Putty or Filezilla, 
+	make sure you have SSH and SCP capabilities.**
+
+
+
+here we go! 
+___________________________________________________________________________________
+
+
+___________________________CS643HadoopImage_Castellano_____________________________
+
+
+
+-Create 3 Amazon EC2 Ubuntu 18.04 instances with open all TCP, SSH, and all UDP communications
+	I strongly recommend setting shutdown behavior to terminate instead of stop.
+
+-Write down all public DNS addresses, and on the AWS console change instance names as one Namenode an
+and datanode01 and datanode02 (for reference)
+
+-ssh into your Namenode instance from the terminal by:
+
+	ssh -i path/pem_key_filename ubuntu@namenode_public-DNS
+
+_________________________________Check Point________________________________________
+
+
+
+###############################################################################
+#################### Setting up Passphrashe-less SSH ##########################
+
+From the Namenode terminal you SSH into previously, type the follwoing command:
+
+	$ sudo vim ~/.ssh/config
+
+it will open a the file where you will then paste/type the contents below: 
+
+	(hit 'i' key to access editing mode)
+
+Host namenode
+  HostName namenode_public_dns   
+  User ubuntu
+  IdentityFile ~/.ssh/pem_key_filename
+Host datanode01
+  HostName datanode01_public_dns  
+  User ubuntu
+  IdentityFile ~/.ssh/pem_key_filename
+Host datanode02
+  HostName datanode02_public_dns
+  User ubuntu
+  IdentityFile ~/.ssh/pem_key_filename
+
+Repeat for all datanodes
+
+then, hit 'esc' key to leave editing mode, type :wq to write and quit the file.
+at this point you should be back to the ubuntu terminal.
+
+	$ exit (to return to your local OS terminal)
+
+from your local terminal copy your private key to your namenode instance with the code:
+
+	>scp -i path/pem_key_filename path/pem_key_filename ubuntu@Namenode_public_DNS:~/.ssh
+
+Now, ssh back into Namenode instance and make sure key.pem was copied:
+
+	>ssh -i path/pem_key_filename ubuntu@namenode_public-DNS
+	$cd ~/.ssh 
+	$ls 
+
+At this point pem_key_filename should be listed in that directory.
+
+	$chmod 400 pem_key_filename #ensure permissions are private
+
+______________________________Checkpoint____________________________________
+
+Now, we will create an additional key for instances to communicate with eachother.
+
+On Namenode Terminal, execute the following:
+
+   $ssh-keygen -f ~/.ssh/id_rsa -t rsa -P ""
+   $cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+   $cat ~/.ssh/id_rsa.pub | ssh datanode01 'cat >> ~/.ssh/authorized_keys'
+   $cat ~/.ssh/id_rsa.pub | ssh datanode02 'cat >> ~/.ssh/authorized_keys'   
+   $...	
+   $...
+   $cat ~/.ssh/id_rsa.pub | ssh datanodeN 'cat >> ~/.ssh/authorized_keys'
+
+
+	#last three commands copy the contents of the generated key into namdenode,
+	and all datanodes respectively.
+
+   Try passphraseless ssh into datanodes by:
+   
+	$ssh datanode01
+	$exit
+	#ssh datanode02
+	$exit
+	$ssh datanodeN
+	$exit
+
+At this point you should be back to Namemode Terminal
+
+_____________________________Checkpoint________________________________________
+###############################################################################
+###################### End Setting up Passphraseless ##########################
+/
+/
+/	
+/
+###############################################################################
+######################## Install Java and Hadoop ##############################
+
+From your Namenode terminal execute:
+
+	$cd ~
+	$sudo apt-get update
+	$sudo apt-get install openjdk-8-jdk
+	$wget https://archive.apache.org/dist/hadoop/common/hadoop-2.6.0/hadoop-2.6.0.tar.gz -P ~
+	$sudo tar zxvf ~/hadoop-2.6.0.tar.gz -C /usr/local
+	$sudo mv /usr/local/hadoop-2.6.0 /usr/local/hadoop
+
+			%%%%%%%       YOU ARE HERE 1/20/2020       %%%%%%%%
+
+
+Then setup the Environment Variables: [You will come back here later]
+
+	$sudo vim ~/.profile
+
+		hit 'i' on keyboard to enter editing mode and paste/type the following 
+		contents into that file:
+
+	export JAVA_HOME=/usr
+	export PATH=$PATH:$JAVA_HOME/bin
+   	export HADOOP_HOME=/usr/local/hadoop
+   	export PATH=$PATH:$HADOOP_HOME/bin
+   	export HADOOP_CONF_DIR=/usr/local/hadoop/etc/hadoop
+
+hit 'esc' and type :wq and 'enter' key to write and quit file
+
+From your NameNode terminal execute:
+
+	$cd ~
+	$source ~/.profile
+	$$HADOOP_HOME
+
+		last command should have output /usr/local/hadoop if it doesn't
+		something is wrong.
+
+
+[End of 'you will come back here' section]
+
+At this point, the environment variables are set in the NaMenode only,
+The same procEdure needs to be repeated for EVERY instance in the cluster.
+From your Namemode cluster eecute:
+
+	$ssh datanode01
+	$sudo apt-get update
+	$sudo apt-get install openjdk-8-jdk
+	
+		then repeat the section marked as [You will come bach here later]
+	
+	$exit
+	$ssh datanode02
+	$sudo apt-get update
+	$sudo apt-get install openjdk-8-jdk
+
+		then repeat the section marked as [you will come back here later]
+
+	$exit
+
+Repeat this for ALL datanodes on your cluster.
+
+If everything has been done correctly, you should be back at your Namenode terminal home/dir
+Up to this point, Java has been installed on Namenode and all Datanodes. 
+However, Hadoop has been installed ONLY on Namenode. The reason for this is that setting up
+Hadoop involves a lot of work, instead of repeating all the tedious work on every instance,
+We will set it up on the namenode, tarball the configured version, copy the tarball
+into the other instances and unpack the configured distribution, this way, we will only
+go through the configuration steps once.
+
+______________________________Checkpoint________________________________________
+################################################################################
+################## End of Install Java and Hadoop ##############################
+/
+/
+/
+/
+################################################################################
+############################ Preparing Hadoop ##################################
+
+From your Namenode Terminal execute:
+
+	$cd ~
+	$sudo vim $HADOOP_CONF_DIR/hadoop-env.sh
+
+	i
+	   	# The java implementation to use.
+   		export JAVA_HOME=/usr
+	 
+	esc
+		:wq
+	enter
+	
+	$sudo vim $HADOOP_CONF_DIR/core-site.xml
+
+	i
+		   
+		<configuration>
+   		<property>
+     		<name>fs.defaultFS</name>
+     		<value>hdfs://namenode_public_dns:9000</value>
+   		</property>
+   		</configuration>
+
+	esc
+		:wq
+	enter
+
+	$sudo vim $HADOOP_CONF_DIR/yarn-site.xml
+
+	i
+	    <configuration>
+    		<! — Site specific YARN configuration properties →
+    		<property>
+      			<name>yarn.nodemanager.aux-services</name>
+      			<value>mapreduce_shuffle</value>
+    		</property> 
+    		<property>
+      			<name>yarn.nodemanager.aux-services.mapreduce.shuffle.class</name>
+      			<value>org.apache.hadoop.mapred.ShuffleHandler</value>
+    		</property>
+    		<property>
+      			<name>yarn.resourcemanager.hostname</name>
+      			<value>namenode_public_dns</value>
+    		</property>
+    		</configuration>
+	esc
+		:wq
+	enter
+
+	$sudo vim $HADOOP_CONF_DIR/mapred-site.xml
+
+	i
+	   <configuration>
+   		<property>
+   			<name>mapreduce.jobtracker.address</name>
+     			<value>namenode_public_dns:54311</value>
+   		</property>
+   		<property>
+     			<name>mapreduce.framework.name</name>
+     			<value>yarn</value>
+   		</property>
+   		</configuration>
+	esc
+		:wq
+	enter
+
+
+
+NameNode Specific Configurations
+
+	$sudo vim /etc/hosts
+
+	i
+   		127.0.0.1 localhost
+   		namenode_public_dns namenode_hostname
+   		datanode01_public_dns datanode01_hostname
+	esc
+		:wq
+	enter
+
+	$sudo vim $HADOOP_CONF_DIR/hdfs-site.xml
+
+	i
+  		<configuration>
+  		<property>
+    			<name>dfs.replication</name>
+    			<value>2</value>
+  		</property>
+  		<property>
+    			<name>dfs.namenode.name.dir</name>
+    			<value>file:///usr/local/hadoop/hadoop_data/hdfs/namenode</value>
+  		</property>
+  		<property>
+    			<name>dfs.datanode.data.dir</name>
+    			<value>file:///usr/local/hadoop/hadoop_data/hdfs/datanode</value>
+  		</property>
+  		</configuration>
+	esc
+		:wq
+	enter
+
+	$sudo vim $HADOOP_CONF_DIR/masters
+
+	i
+	       namenode_hostname
+	esc
+		:wq
+	enter
+	
+	$sudo vim $HADOOP_CONF_DIR/slaves
+
+	i
+       		namenode_hostname
+       		datanode_hostname
+ 	esc
+		:wq
+	enter
+
+ 	$sudo mkdir -p $HADOOP_HOME/hadoop_data/hdfs/namenode
+        $sudo mkdir -p $HADOOP_HOME/hadoop_data/hdfs/datanode
+        $sudo chown -R ubuntu $HADOOP_HOME
+
+
+Prepare an already configured version of Hadoop as a tarball,
+From your NameNode Terminal execute:
+
+	$cd /usr/local/
+	$sudo tar czf myarchive.tar.gz hadoop
+	$scp myarchive.tar.gz datanode01:~
+	$ssh datanode01
+	$sudo mv myarchive.tar.gz /usr/local
+	$cd /usr/local
+	$sudo tar xzf myarchive.tar.gz
+	$exit
+
+	$scp myarchive.tar.gz datanode02:~
+	$ssh datanode02
+	$sudo mv myarchive.tar.gz /usr/local
+	$cd /usr/local
+	$sudo tar xzf myarchive.tar.gz
+	$exit
+	
+if you check the contents of /usr/local/hadoop/etc/hadoop you will see the files as configured
+previously on Namenode
+ 
+
+Start Hadoop Cluster
+
+   $ hdfs namenode -format
+   $ $HADOOP_HOME/sbin/start-dfs.sh
+   $ $HADOOP_HOME/sbin/start-yarn.sh
+   $ $HADOOP_HOME/sbin/mr-jobhistory-daemon.sh start historyserver
+
+
+
+
+
+
+################################################################################ Run The Program #########################################################################################
+
+
+	$ scp states.tar.gz to NameNode
+	$ sudo tar xvf states.tar.gz
+
+Create the folder in HDFS (Not necessary but helpful)
+
+	$ hdfs dfs -mkdir -p HDFS
+	$ hdfs dfs -ls HDFS/
+	$ hdfs dfs -put 'states' HDFS
+	$ hdfs dfs -ls HDFS/states
+
+Run Programs
+
+	$ hadoop jar 'Prog_assignment1.jar' HDFS/states HDFS/result 
+	$ hadoop jar 'Prog_assignment2.jar' HDFS/states HDFS/result 
+
+Check Output
+
+	$ hdfs dfs -cat HDFS/result/part-r-00000 
+
+
+
